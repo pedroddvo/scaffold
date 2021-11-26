@@ -78,6 +78,15 @@ void lexer_token(struct lexer* l, struct token* t) {
     case '-': t->id = TOKEN_MINUS; break;
     case '*': t->id = TOKEN_STAR; break;
     case '/': t->id = TOKEN_SLASH; break;
+    case '(':
+      t->id = TOKEN_LPAREN;
+      l->parenCount++;
+      l->parenLast = l->srcOffset;
+      break;
+    case ')':
+      t->id = TOKEN_RPAREN;
+      l->parenCount--;
+      break;
     default:
       t->id = TOKEN_ERROR;
       stacktrace_push(&l->trace, start, 1, "Unknown character");
@@ -87,7 +96,7 @@ void lexer_token(struct lexer* l, struct token* t) {
   }
 
   t->start = start;
-  t->offset = l->srcOffset;
+  t->offset = l->srcOffset - start;
   return;
 eof:
   t->start = l->srcOffset;

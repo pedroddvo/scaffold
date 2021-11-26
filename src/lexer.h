@@ -12,10 +12,12 @@ struct token {
     TOKEN_NUMBER,
     TOKEN_SYMBOL,
 
-    TOKEN_PLUS,
-    TOKEN_MINUS,
-    TOKEN_SLASH,
-    TOKEN_STAR
+    TOKEN_PLUS,    // '+'
+    TOKEN_MINUS,   // '-'
+    TOKEN_SLASH,   // '/'
+    TOKEN_STAR,    // '*'
+    TOKEN_LPAREN,  // '('
+    TOKEN_RPAREN,  // ')'
   } id;
 
   int start;
@@ -29,6 +31,9 @@ struct lexer {
   struct stacktrace trace;
 
   int srcOffset;
+
+  int parenCount;
+  int parenLast;
 };
 
 void lexer_init(struct lexer* l, char* src, int srcLen);

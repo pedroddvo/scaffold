@@ -20,6 +20,7 @@ struct parser {
   int tokOffset;
 };
 
+void emit_expr(struct parser* p);
 void parse(char* src, int srcLen, struct chunk* emitted);
 
 #endif

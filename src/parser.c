@@ -4,6 +4,28 @@
 #include <string.h>
 #include <stdio.h>
 
+static const char* token_repr(struct token* t) {
+  switch (t->id) {
+  case TOKEN_EOF:
+    return "end of file";
+  case TOKEN_ERROR:
+    return "error";
+  case TOKEN_SOF:
+    return "start of file";
+  case TOKEN_NUMBER:
+    return "number";
+  case TOKEN_SYMBOL:
+    return "symbol";
+  case TOKEN_PLUS:
+  case TOKEN_MINUS:
+  case TOKEN_SLASH:
+  case TOKEN_STAR:
+  case TOKEN_LPAREN:
+  case TOKEN_RPAREN:
+    return "operator";
+  }
+}
+
 static void expect(struct parser* p, struct token* t,
 		   const char* expected, const char* got, bool expr) {
   if (!expr) {
@@ -47,6 +69,11 @@ static void emit_atomic(struct parser* p) {
     chunk_emit_constant(p->chunk, atof(tstr));
     free(tstr);
     break;
+  case TOKEN_LPAREN:
+    emit_expr(p);
+    t = next(p);
+    break;
+    
 
   default:
     stacktrace_push(&p->trace, t->start, t->offset,
@@ -84,13 +111,15 @@ static void emit_binary(struct parser* p, int minbp) {
     case TOKEN_PLUS:
     case TOKEN_MINUS:
     case TOKEN_STAR:
-    case TOKEN_SLASH: 
+    case TOKEN_SLASH:
+    case TOKEN_LPAREN:
+    case TOKEN_RPAREN:
       break;
     case TOKEN_EOF:
       return;
     default:
       stacktrace_push(&p->trace, op_t->start, op_t->offset,
-		      "Unexpected expression");
+		      "Unexpected token");
     }
 
 #define CASE_TOKEN(tok, op) case tok: chunk_emit_instruction(p->chunk, op); break;
@@ -111,12 +140,17 @@ static void emit_binary(struct parser* p, int minbp) {
 	CASE_TOKEN(TOKEN_SLASH, OP_DIV);
       default:
 	stacktrace_push(&p->trace, op_t->start, op_t->offset,
-			"Undefined opcode for operator");
+			"Undefined opcode for infix operator");
       }
     }
+
+    break;
   }
 }
 
+void emit_expr(struct parser* p) {
+  emit_binary(p, 0);
+}
 
 void parse(char* src, int srcLen, struct chunk* emitted) {
   struct parser parser;
@@ -155,6 +189,12 @@ void parse(char* src, int srcLen, struct chunk* emitted) {
 
   parser.tokenized = t;
 
+  // catch any unclosed parentheses
+  if (lexer.parenCount > 0) {
+    stacktrace_push(&lexer.trace, lexer.parenLast, 1,
+		    "Unclosed parenthesis");
+  }
+
   // if we catch any lexing errors...
   if (lexer.trace.errorCount > 0) {
     stacktrace_report(&lexer.trace, src, srcLen);
@@ -164,7 +204,7 @@ void parse(char* src, int srcLen, struct chunk* emitted) {
   // begin the parsing...
   chunk_init(emitted);
   parser.chunk = emitted;
-  emit_binary(&parser, 0);
+  emit_expr(&parser);
   chunk_emit_instruction(parser.chunk, OP_EOF);
 
   if (parser.trace.errorCount > 0) {
